@@ -73,7 +73,7 @@ def download_image(
     if response.status_code != 200:
         raise Exception(f"Failed to download image: {response.status_code}")
 
-    filename = f"{faker.uuid4()}.jpg"
+    filename = f"{faker.uuid4()}.png"
     filepath = os.path.join(folder, filename)
 
     with open(filepath, "wb") as f:
