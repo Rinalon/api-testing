@@ -8,9 +8,9 @@ class TagResponse(BaseModel):
 class NewsResponse(BaseModel):
     id: int
     title: str
-    subtitle: str | None
+    subtitle: str | None = None
     text: str
-    image_path: str | None
+    image_path: str | None = None
     author: "UserResponse"
     tags: list[TagResponse]
     created_at: datetime
@@ -18,8 +18,8 @@ class NewsResponse(BaseModel):
 
 class Body_create_news_api_news_post(BaseModel):
     title: str
-    subtitle: str | None
+    subtitle: str | None = None
     text: str
-    tags: list[str] | None
-    image: str | None
+    tags: list[str] | None = None
+    image: str | None = None
 
