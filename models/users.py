@@ -1,4 +1,9 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    UploadFile
+)
 from datetime import datetime
 class UserCreate(BaseModel):
     email: EmailStr
@@ -22,3 +27,6 @@ class UserUpdate(BaseModel):
     last_name: str | None
     phone: str | None
     password: str | None
+
+class Body_upload_photo_api_users_me_photo_post(BaseModel):
+    photo: UploadFile
