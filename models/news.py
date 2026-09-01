@@ -20,6 +20,6 @@ class Body_create_news_api_news_post(BaseModel):
     title: str
     subtitle: str | None = None
     text: str
-    tags: list[str] | None = None
+    tags: str | None = None
     image: str | None = None
 
