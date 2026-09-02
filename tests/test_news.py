@@ -7,52 +7,169 @@ from helpers import generate_news
 from tests.conftest import BASE_URL, USERS
 from datetime import date
 
+@pytest.fixture(scope="function")
+def temp_news(request, faker, login):
+    with allure.step("Логинимся под админом"):
+        token = login(**USERS[0])
+        headers = {"Authorization": f"Bearer {token}"}
+
+    test_instance = request.instance
+    with allure.step("Создаём новость"):
+        news_data = test_instance.create_news(faker=faker, params={"exclude": ("image",)})
+        files = test_instance.make_files(news_data)
+
+        response = requests.post(f"{BASE_URL}/api/news/", headers=headers, files=files)
+        news_id = response.json().get("id")
+
+    yield response
+
+    with allure.step("Удаляем"):
+        #405 т.к. нет данных от профиля админа
+        requests.delete(f"{test_instance.news_url}{news_id}", headers=headers)
+
 class TestNews:
+    news_url = BASE_URL + "/api/news/"
+
+    @allure.step("Подготовка данных для запроса")
+    def make_files(self, news_data):
+        image_path = news_data.image
+        files = {}
+        for key, value in news_data.model_dump().items():
+            if value is not None:
+                files[key] = (None, str(value))
+
+        if image_path and os.path.exists(image_path):
+            files["image"] = (
+                os.path.basename(image_path),
+                open(image_path, "rb"),
+                "image/png"
+            )
+
+        return files
+
+    @allure.step("Создание новости")
+    def create_news(self, faker, params):
+        news_data = NewsCreate(**generate_news(faker, **params))
+        return news_data
+
+    @allure.story("Проверка создания новости")
     @pytest.mark.parametrize("params", [
         pytest.param({"exclude": ("image",)}, id="without_image"),
         pytest.param({}, id="full_news"),
     ])
-    def test_create(self, faker, login, params):
+    def test_create(self, faker, params, login):
         with allure.step("Получаем токен авторизации"):
             token = login(**USERS[0])
-            headers = {"Authorization": f"Bearer {token}"}
+            self.headers = {"Authorization": f"Bearer {token}"}
 
-        with allure.step("Создание новости"):
-            news_data = NewsCreate(**generate_news(faker, **params))
+        news_data = self.create_news(faker, params)
+        files = self.make_files(news_data)
 
-            with allure.step("Подготовка данных для запроса"):
-                image_path = news_data.image
-                files = {}
-                for key, value in news_data.model_dump().items():
-                    if value is not None:
-                        files[key] = (None, str(value))
-
-                if image_path and os.path.exists(image_path):
-                    files["image"] = (
-                        os.path.basename(image_path),
-                        open(image_path, "rb"),
-                        "image/png"
-                    )
-
-            response = requests.post(f"{BASE_URL}/api/news/", headers=headers, files=files)
-
-            assert response.status_code == 200
+        response = requests.post(self.news_url, headers=self.headers, files=files)
+        assert response.status_code == 200
 
         with allure.step("Проверка созданной новости"):
-            answer = NewsResponse(**response.json())
+            created_news = NewsResponse(**response.json())
 
-            assert answer.title == news_data.title, "Заголовок не совпадает или отсутствует"
-            assert answer.text == news_data.text, "Текст не совпадает или отсутствует"
+            assert created_news.title == news_data.title, "Заголовок не совпадает или отсутствует"
+            assert created_news.text == news_data.text, "Текст не совпадает или отсутствует"
 
             if news_data.subtitle:
-                assert answer.subtitle == news_data.subtitle, "Подзаголовок не совпадает"
+                assert created_news.subtitle == news_data.subtitle, "Подзаголовок не совпадает"
 
             if news_data.tags:
                 tags = news_data.tags.split(", ")
-                assert all(t.name in tags for t in answer.tags)
+                assert all(t.name in tags for t in created_news.tags), "Теги не совпадают"
 
-        with allure.step("Удаление новости"):
-            news_id = response.json().get("id")
-            response = requests.delete(f"{BASE_URL}/api/news/{news_id}", headers=headers)
-            #405
-            #assert response.status_code == 200
+            if news_data.image:
+                assert created_news.image_path is not None, "Картинка не загрузилась"
+
+    @allure.story("Проверка получения всех новостей")
+    def test_get_all(self):
+        response = requests.get(self.news_url)
+
+        assert response.status_code == 200, "Ошибка получения новостей"
+        assert response.json().get("items") is not None, "Нет списка"
+
+    @allure.story("Получение тегов")
+    def test_get_tags(self):
+        response = requests.get(f"{self.news_url}tags")
+
+        assert response.status_code == 200, "Ошибка получения тегов"
+        result = response.json()
+
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+    @allure.story("Получение конкретной новости")
+    def test_get_news(self, temp_news):
+        response = temp_news
+
+        example = NewsResponse(**response.json())
+
+        response = requests.get(f"{self.news_url}{example.id}")
+
+        assert response.status_code == 200
+        received = NewsResponse(**response.json())
+
+        assert received == example, "Полученная новость отличается от созданной"
+
+
+    @allure.story("Проверка пагинации")
+    def test_paginate(self):
+        with allure.step("Получаем 1ю страницу"):
+            response = requests.get(self.news_url, params={"page": 1, "per_page": 20})
+            assert response.status_code == 200
+
+            result = response.json()
+
+            assert result["page"] == 1
+            assert result["per_page"] == 20
+
+            page1 = result["items"]
+
+        with allure.step("Получаем 2ю страницу"):
+            response = requests.get(self.news_url, params={"page": 2, "per_page": 20})
+            assert response.status_code == 200
+
+            result = response.json()
+
+            assert result["page"] == 2
+            assert result["per_page"] == 20
+
+            page2 = response.json()["items"]
+
+        with allure.step("Проверяем, что новости не повторяются"):
+            assert all(page1[i] != page2[i] for i in range(20))
+
+    @allure.story("Проверка поиска по тексту")
+    def test_search_per_text(self, temp_news):
+        import random
+
+        with allure.step("Получаем созданную временную новость и фрагментированный текст"):
+            news_data = temp_news.json()
+            text_fragment = news_data["text"].split()
+
+        with allure.step("Проверяем поиск по тексту"):
+            word = text_fragment[random.randint(0, len(text_fragment) - 1)]
+            response = requests.get(self.news_url, params={"search": word})
+
+            assert response.status_code == 200
+
+            assert any(news_data["id"] == n["id"] for n in response.json()["items"])
+
+    @allure.story("Проверка поиска по тегу")
+    def test_search_per_tag(self, faker, temp_news):
+        import random
+
+        with allure.step("Получаем созданную временную новость и список тегов"):
+            news_data = temp_news.json()
+            tags = [t["name"] for t in news_data["tags"]]
+
+        with allure.step("Проверяем поиск по тексту"):
+            word = tags[random.randint(0, len(tags) - 1)]
+            response = requests.get(self.news_url, params={"tag": word})
+
+            assert response.status_code == 200
+
+            assert any(news_data["id"] == n["id"] for n in response.json()["items"])
