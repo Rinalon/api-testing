@@ -4,53 +4,11 @@ import os
 import requests
 from models import NewsResponse, Body_create_news_api_news_post as NewsCreate
 from helpers import generate_news
-from tests.conftest import BASE_URL, USERS
+from tests.conftest import BASE_URL, USERS, create_news, make_files
 from datetime import date
-
-@pytest.fixture(scope="function")
-def temp_news(request, faker, login):
-    with allure.step("Логинимся под админом"):
-        token = login(**USERS[0])
-        headers = {"Authorization": f"Bearer {token}"}
-
-    test_instance = request.instance
-    with allure.step("Создаём новость"):
-        news_data = test_instance.create_news(faker=faker, params={"exclude": ("image",)})
-        files = test_instance.make_files(news_data)
-
-        response = requests.post(f"{BASE_URL}/api/news/", headers=headers, files=files)
-        news_id = response.json().get("id")
-
-    yield response
-
-    with allure.step("Удаляем"):
-        #405 т.к. нет данных от профиля админа
-        requests.delete(f"{test_instance.news_url}{news_id}", headers=headers)
 
 class TestNews:
     news_url = BASE_URL + "/api/news/"
-
-    @allure.step("Подготовка данных для запроса")
-    def make_files(self, news_data):
-        image_path = news_data.image
-        files = {}
-        for key, value in news_data.model_dump().items():
-            if value is not None:
-                files[key] = (None, str(value))
-
-        if image_path and os.path.exists(image_path):
-            files["image"] = (
-                os.path.basename(image_path),
-                open(image_path, "rb"),
-                "image/png"
-            )
-
-        return files
-
-    @allure.step("Создание новости")
-    def create_news(self, faker, params):
-        news_data = NewsCreate(**generate_news(faker, **params))
-        return news_data
 
     @allure.story("Проверка создания новости")
     @pytest.mark.parametrize("params", [
@@ -62,8 +20,8 @@ class TestNews:
             token = login(**USERS[0])
             self.headers = {"Authorization": f"Bearer {token}"}
 
-        news_data = self.create_news(faker, params)
-        files = self.make_files(news_data)
+        news_data = create_news(faker, params)
+        files = make_files(news_data)
 
         response = requests.post(self.news_url, headers=self.headers, files=files)
         assert response.status_code == 200
