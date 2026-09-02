@@ -117,7 +117,7 @@ class TestNews:
             assert any(news_data["id"] == n["id"] for n in response.json()["items"])
 
     @allure.story("Проверка поиска по тегу")
-    def test_search_per_tag(self, faker, temp_news):
+    def test_search_per_tag(self, temp_news):
         import random
 
         with allure.step("Получаем созданную временную новость и список тегов"):

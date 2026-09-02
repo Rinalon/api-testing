@@ -1,61 +1,69 @@
 import pytest
 import allure
 import requests
-from models import CommentResponse, CommentCreate, Body_create_news_api_news_post as NewsCreate
-from helpers import generate_user, generate_news
+from models import CommentResponse, CommentCreate
 from tests.conftest import BASE_URL, USERS
-from datetime import date
 
 class TestComments:
     @pytest.fixture(autouse=True)
-    def setup(self, login, faker):
-        with allure.step("Получаем токен авторизации"):
-            token = login(**USERS[0])
-            headers = {"Authorization": f"Bearer {token}"}
+    def setup(self, login):
+        token = login(**USERS[1])
+        self.headers = {"Authorization": f"Bearer {token}"}
 
-        with allure.step("Создание новости"):
-            news_data = NewsCreate(**generate_news(faker, exclude=("image"), tags_is_list=True))
-            response = requests.post(f"{BASE_URL}/api/news", headers=headers, json=news_data.model_dump())
-            self.news_id = response.json().get("id")
-
-        with allure.step("Выполнение теста"):
-            yield self.news_id
-
-        with allure.step("Очистка"):
-            # 403
-            response = requests.delete(f"{BASE_URL}/api/admin/news/{self.news_id}", headers=headers)
-
+    @allure.step("Создание url для подключения")
     def __get_comments_url(self, news_id):
         return  f"{BASE_URL}/api/news/{news_id}/comments"
 
+    @allure.step("Получение комментариев к новости")
     def __get_comments(self, news_id):
-        return requests.get(self.__get_comments_url(news_id)).json()
+        response = requests.get(self.__get_comments_url(news_id))
+        assert response.status_code == 200, f"Ошибка выполнения: {response.status_code}, \n{response.json}"
 
-    def test_add_comment(self, faker, login):
-        with allure.step("Получаем токен авторизации"):
-            token = login(**USERS[0])
-            headers = {"Authorization": f"Bearer {token}"}
+        return [CommentResponse(**c) for c in response.json()]
 
-        with allure.step("Генерируем url и комментарий"):
-            url = self.__get_comments_url(self.news_id)
+    @allure.step("Создание комментария")
+    def __create_comments(
+            self,
+            faker,
+            news_id: int,
+            count: int | None = 1,
+    ):
+        with allure.step("Генерируем url"):
+            url = self.__get_comments_url(news_id)
 
-            text = faker.text()
-            comment = CommentCreate(text=text)
+        comments = []
+        for _ in range(count):
+            with allure.step("Генерируем комментарий"):
+                comment = CommentCreate(text=faker.text())
 
-        with allure.step("Отправляем запрос"):
-            response = requests.post(url, json=comment.model_dump(), headers=headers)
+            with allure.step("Создаём комментарий"):
+                response = requests.post(url, json=comment.model_dump(), headers=self.headers)
+                assert response.status_code == 200, f"Ошибка выполнения: {response.status_code}, \n{response.json}"
 
-            assert response.status_code == 200, f"Ошибка выполнения: {response.status_code}, \n{response.json}"
+                comments.append(CommentResponse(**response.json()))
+        return comments
 
-        with allure.step("Проверяем наличие"):
-            comment_id = response.json().get("id")
-            comments = self.__get_comments(self.news_id)
+    def test_add(self, faker, temp_news):
+        news_id = temp_news.json().get("id")
 
-            assert any((c.id == comment_id
-                        and c.text==text
-                        and c.created_at.date == date.today()
-                        ) for c in comments), "Комментарий не найден"
+        created = self.__create_comments(faker, news_id, count = 1)
+
+        with allure.step("Проверяем наличие комментария"):
+            comment = created[0]
+            comments = self.__get_comments(news_id)
+
+            assert any(c == comment for c in comments), "Комментарий не найден"
+
+    def test_get(self, faker, temp_news):
+        count = 10
+        news_id = temp_news.json().get("id")
 
 
-    def test_get_comments(self):
-        pass
+        created = self.__create_comments(faker, news_id, count=count)
+        comments = self.__get_comments(news_id)
+
+        with allure.step("Сортируем по id, чтобы гарантировать одинаковый порядок комментариев"):
+            created.sort(key=lambda c: c.id)
+            comments.sort(key=lambda c: c.id)
+
+        assert all(comments[i] == created[i] for i in range(count)), "Комментарии не совпадают"

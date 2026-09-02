@@ -7,6 +7,7 @@ from models.comments import CommentCreate, CommentResponse
 from models.auth import Token, Body_login_api_auth_login_post
 
 NewsResponse.model_rebuild()
+CommentResponse.model_rebuild()
 
 __all__ = [
     "UserCreate", "UserUpdate", "UserResponse",
