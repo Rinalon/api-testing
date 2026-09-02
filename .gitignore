@@ -3,5 +3,6 @@
 __pycache__/
 
 allure-results/
+temp/
 
 test_run.log
