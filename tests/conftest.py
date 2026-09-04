@@ -4,6 +4,7 @@ import requests
 from helpers import generate_user, generate_news
 from models import Body_create_news_api_news_post as NewsCreate
 from faker import Faker
+
 BASE_URL = "https://archiscope.ru"
 
 # Данные тестовых пользователей
@@ -40,10 +41,7 @@ def login():
         from models import Body_login_api_auth_login_post as LoginModel
 
         login_url = BASE_URL + '/api/auth/login'
-        user = LoginModel(
-            username=email,
-            password=password,
-        )
+        user = LoginModel(email=email, password=password)
         response = requests.post(login_url, data=user.model_dump())
 
         return response.json().get("access_token")
@@ -88,5 +86,5 @@ def temp_news(request, faker, login):
     yield response
 
     with allure.step("Удаляем"):
-        #405 т.к. нет данных от профиля админа
+        #403
         requests.delete(f"{BASE_URL}/api/news/{news_id}", headers=headers)

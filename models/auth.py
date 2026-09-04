@@ -6,7 +6,7 @@ class Token(BaseModel):
 
 class Body_login_api_auth_login_post(BaseModel):
     grant_type: str | None = None
-    username: str
+    username: str = Field(alias="email")
     password: str
     scope: str | None = Field(default="")
     client_id: str | None =  None

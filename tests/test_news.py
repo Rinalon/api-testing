@@ -1,11 +1,8 @@
 import pytest
 import allure
-import os
 import requests
-from models import NewsResponse, Body_create_news_api_news_post as NewsCreate
-from helpers import generate_news
+from models import NewsResponse
 from tests.conftest import BASE_URL, USERS, create_news, make_files
-from datetime import date
 
 class TestNews:
     news_url = BASE_URL + "/api/news/"
