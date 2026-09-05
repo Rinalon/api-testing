@@ -4,6 +4,7 @@ import requests
 from pathlib import Path
 from faker import Faker
 from PIL import Image, ImageDraw
+from models import Body_create_news_api_news_post as NewsCreate
 
 def generate_image(
         width: int | None = 800,
@@ -126,3 +127,26 @@ def generate_news(
             news.pop(word, None)
 
     return news
+
+def make_files(news_data: NewsCreate):
+    """
+    Генерация файла для запроса
+    Args:
+        news_data (NewsCreate): модель данных пользователя
+    Returns:
+        dict: Словарь с данными для новости в формате, необходимом для отправки как multipart/form-data
+    """
+    image_path = news_data.image
+    files = {}
+    for key, value in news_data.model_dump().items():
+        if value is not None:
+            files[key] = (None, str(value))
+
+    if image_path and os.path.exists(image_path):
+            files["image"] = (
+                os.path.basename(image_path),
+                open(image_path, "rb"),
+                "image/png"
+            )
+
+    return files

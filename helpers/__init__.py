@@ -1,9 +1,15 @@
 from helpers.user_factory import generate_user
-from helpers.news_factory import generate_news, generate_image, download_image
+from helpers.news_factory import (
+    generate_news,
+    generate_image,
+    download_image,
+    make_files
+)
 
 __all__ = [
     "generate_user",
     "generate_news",
     "generate_image",
     "download_image",
+    "make_files",
 ]

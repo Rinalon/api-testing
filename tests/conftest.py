@@ -1,90 +1,105 @@
 import pytest
 import allure
 import requests
-from helpers import generate_user, generate_news
-from models import Body_create_news_api_news_post as NewsCreate
+from helpers import generate_news, make_files
+from models import (
+    Token, UserResponse,
+    Body_create_news_api_news_post as NewsCreate,
+    Body_login_api_auth_login_post as LoginModel
+)
 from faker import Faker
-
-BASE_URL = "https://archiscope.ru"
-
-# Данные тестовых пользователей
-USERS = [
-        {"email": "test@example.com", "password": "password123"},
-        {"email": "example@example.com", "password": "123pass456"},
-]
 
 @pytest.fixture(scope="session")
 def faker():
     return Faker("ru_RU")
 
 @pytest.fixture(scope="session")
-def base_url():
-    return BASE_URL
+def base_url() -> str:
+    return "https://archiscope.ru"
 
 @pytest.fixture(scope="session")
-def requests_session(base_url):
-    class Session():
-        def __init__(self, base_url):
+def test_user_credentials() -> dict[str, str]:
+    return {
+        "email": "test@example.com",
+        "password": "password123",
+        "first_name": "Tester",
+        "last_name": "Tester",
+    }
+
+@pytest.fixture(scope="session")
+def api_client(base_url: str, test_user_credentials: dict[str, str]):
+    class APIClient:
+        def __init__(self) -> None:
             self.base_url = base_url
+            self.test_user_credentials = test_user_credentials
 
-        def request(self, method, url, **kwargs): pass
+            self.session = requests.Session()
 
-        def post(self):
-            pass
-    return requests.Session()
-#TODO фикстура-обёртка над реквестом
+            self.token = None
 
-#Это надо будет засунуть в storage или общую фикстуру
+        def set_token(self, token):
+            self.token = token
+            self.session.headers.update({"Authorization": f"Bearer {token}"})
+
+        def _get_header(self):
+            headers = {"Content-Type": "application/json"}
+            return headers
+
+        def request(
+                self,
+                method: str,
+                endpoint: str,
+                expected_status: int | None = 200,
+                **kwargs
+        ):
+            url = f"{self.base_url}{endpoint}"
+
+            response = self.session.request(method, url, **kwargs)
+
+            assert response.status_code == expected_status, (
+                f"При запросе {url} ожидалось {expected_status}, получено {response.status_code}, {response.json()}"
+            )
+            return response
+
+        def get(self, endpoint: str, expected_status: int | None = 200, **kwargs):
+            return self.request("GET", endpoint, expected_status, **kwargs)
+
+        def post(self, endpoint: str, expected_status: int | None = 200, **kwargs):
+            return self.request("POST", endpoint, expected_status, **kwargs)
+
+    return APIClient()
+
+@pytest.fixture(scope="session")
+def auth_client(api_client, test_user_credentials: dict[str, str]):
+    login_data = LoginModel(**test_user_credentials)
+
+    response = api_client.post(
+        "/api/auth/login",
+                data=login_data.model_dump(),
+                expected_status=200,
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+
+    token = Token(**response.json())
+    api_client.set_token(token.access_token)
+
+    #user_response = api_client.get("/api/user/me", expected_status=200)
+
+    return api_client
+
 @pytest.fixture(scope="function")
-def login():
-    def __login(email, password):
-        from models import Body_login_api_auth_login_post as LoginModel
+def cleanup(faker, auth_client):
+    def __cleanup(endpoint: str):
+        with allure.step("Удаляем"):
+            # 403 т.к. нет данных от админа
+            auth_client.request("DELETE", endpoint, expected_status=403)
+    return __cleanup
 
-        login_url = BASE_URL + '/api/auth/login'
-        user = LoginModel(email=email, password=password)
-        response = requests.post(login_url, data=user.model_dump())
-
-        return response.json().get("access_token")
-    return __login
-
-@allure.step("Подготовка данных для запроса")
-def make_files(news_data):
-    import os
-    image_path = news_data.image
-    files = {}
-    for key, value in news_data.model_dump().items():
-        if value is not None:
-            files[key] = (None, str(value))
-
-    if image_path and os.path.exists(image_path):
-        files["image"] = (
-            os.path.basename(image_path),
-            open(image_path, "rb"),
-            "image/png"
-        )
-
-    return files
-
+# Здесь, т.к. нужна в 2х классах
 @allure.step("Создание новости")
-def create_news(faker, params):
+def create_news(faker, api_client, params: dict | None = {}):
     news_data = NewsCreate(**generate_news(faker, **params))
-    return news_data
+    files = make_files(news_data)
 
-@pytest.fixture(scope="function")
-def temp_news(request, faker, login):
-    with allure.step("Логинимся под админом"):
-        token = login(**USERS[0])
-        headers = {"Authorization": f"Bearer {token}"}
-
-    with allure.step("Создаём новость"):
-        news_data = create_news(faker=faker, params={"exclude": ("image",)})
-        files = make_files(news_data)
-
-        response = requests.post(f"{BASE_URL}/api/news/", headers=headers, files=files)
-        news_id = response.json().get("id")
-
-    yield response
-
-    with allure.step("Удаляем"):
-        #403
-        requests.delete(f"{BASE_URL}/api/news/{news_id}", headers=headers)
+    response = api_client.post("/api/news/", files=files)
+    return response.json()
