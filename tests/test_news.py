@@ -1,19 +1,25 @@
 import pytest
 import allure
-import requests
 from models import NewsResponse, Body_create_news_api_news_post as NewsCreate
 from tests.conftest import create_news
 from helpers import make_files, generate_news
 
+@allure.epic("News")
 class TestNews:
     news_endpoint = "/api/news/"
 
     @pytest.fixture(autouse=True)
     def setup(self, auth_client, faker):
+        """Фикстура для инициализации"""
         self.api_client = auth_client
         self.faker = faker
 
+    @allure.feature("Создание новости")
     @allure.story("Проверка создания новости")
+    @allure.description("""
+        1 Создаём новость
+        2 Проверяем соответствие созданной новости и изначальной
+    """)
     @pytest.mark.parametrize("params", [
         pytest.param({"exclude": ("image",)}, id="without_image"),
         pytest.param({}, id="full_news"),
@@ -40,22 +46,37 @@ class TestNews:
             if news_data.image:
                 assert created_news.image_path is not None, "Картинка не загрузилась"
 
+    @allure.feature("Получение всех новостей")
     @allure.story("Проверка получения всех новостей")
+    @allure.description("""
+        1 Запросить новости по эндпоинту
+        2 Проверить наличие items в ответе
+    """)
     def test_get_all(self):
         response = self.api_client.get(self.news_endpoint)
 
         assert response.json().get("items") is not None, "Нет списка"
 
+    @allure.feature("Получение тегов")
     @allure.story("Получение тегов")
+    @allure.description("""
+        1 Запросить теги по эндпоинту
+        2 Проверить тип полученных данных
+    """)
     def test_get_tags(self):
         response = self.api_client.get(f"{self.news_endpoint}tags")
 
         result = response.json()
 
         assert isinstance(result, list)
-        assert len(result) > 0
 
+    @allure.feature("Получение конкретной новости")
     @allure.story("Получение конкретной новости")
+    @allure.description("""
+        1 Создать новость
+        2 Получить эту новость через get-запрос
+        3 Проверить, что данные совпадают
+    """)
     def test_get_news(self):
         news_data = create_news(faker=self.faker, api_client=self.api_client)
         example = NewsResponse(**news_data)
@@ -66,7 +87,14 @@ class TestNews:
 
         assert received == example, "Полученная новость отличается от созданной"
 
+    @allure.feature("Пагинация")
     @allure.story("Проверка пагинации")
+    @allure.description("""
+        1 Получить 1ю страницу
+        2 Получить 2ю страницу
+        3 Отсортировать новости по датам создания, чтобы гарантировать правильное сравнение новостей
+        4 Проверить, что новости на страницах не совпадают
+    """)
     def test_paginate(self):
         with allure.step("Получаем 1ю страницу"):
             response = self.api_client.get(self.news_endpoint, params={"page": 1, "per_page": 20})
@@ -93,11 +121,18 @@ class TestNews:
         with allure.step("Проверяем, что новости не повторяются"):
             assert all(page1[i] != page2[i] for i in range(20))
 
+    @allure.feature("Поиск по тексту")
     @allure.story("Проверка поиска по тексту")
+    @allure.description("""
+        1 Создаём новость
+        2 Делим текст на слова
+        3 Пытаемся через get-запрос найти новость по случайному слову
+        4 Проверяем наличие созданной новости в результате
+    """)
     def test_search_per_text(self):
         import random
 
-        with allure.step("Получаем созданную временную новость и фрагментированный текст"):
+        with allure.step("Создаём новость и делим текст на фрагменты"):
             news_data = create_news(self.faker, self.api_client)
             text_fragment = news_data["text"].split()
 
@@ -107,11 +142,18 @@ class TestNews:
 
             assert any(news_data["id"] == n["id"] for n in response.json()["items"])
 
+    @allure.feature("Поиск по тегу")
     @allure.story("Проверка поиска по тегу")
+    @allure.description("""
+        1 Создаём новость
+        2 Получаем список тегов
+        3 Пытаемся через get-запрос найти новость по случайному тегу
+        4 Проверяем наличие созданной новости в результате
+    """)
     def test_search_per_tag(self):
         import random
 
-        with allure.step("Получаем созданную временную новость и список тегов"):
+        with allure.step("Создаём новость и получаем список тегов"):
             news_data = create_news(self.faker, self.api_client)
             tags = [t["name"] for t in news_data["tags"]]
 

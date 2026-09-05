@@ -3,9 +3,11 @@ import allure
 from models import CommentResponse, CommentCreate
 from tests.conftest import create_news
 
+@allure.epic("Comments")
 class TestComments:
     @pytest.fixture(autouse=True)
     def setup(self, auth_client, faker):
+        """Фикстура для инициализации"""
         self.faker = faker
         self.api_client = auth_client
 
@@ -38,9 +40,17 @@ class TestComments:
                 comments.append(CommentResponse(**response.json()))
         return comments
 
+    @allure.feature("Добавление комментария")
+    @allure.story("Проверка добавления комментария")
+    @allure.description("""
+        1 Создание новости
+        2 Создание комментария
+        3 Проверка наличия комментария в данных новости
+    """)
     def test_add(self):
         news = create_news(self.faker, self.api_client, {"exclude": ("image",)})
         news_id = news["id"]
+
         created = self.__create_comments(news_id, count = 1)
 
         with allure.step("Проверяем наличие комментария"):
@@ -49,6 +59,15 @@ class TestComments:
 
             assert any(c == comment for c in comments), "Комментарий не найден"
 
+    @allure.feature("Получение новостей")
+    @allure.story("Проверка получения новостей страницы")
+    @allure.description("""
+        1 Создание новости
+        2 Создание комментариев
+        3 Получение комментариев со страницы новости
+        4 Сортировка массивов комментариев по id, чтобы гарантировать одинаковый порядок при сравнении
+        5 Проверка наличия всех комментариев
+    """)
     def test_get(self):
         count = 10
         news = create_news(self.faker, self.api_client, {"exclude": ("image",)})

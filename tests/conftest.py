@@ -83,7 +83,7 @@ def auth_client(api_client, test_user_credentials: dict[str, str]):
     token = Token(**response.json())
     api_client.set_token(token.access_token)
 
-    #user_response = api_client.get("/api/user/me", expected_status=200)
+    user_response = api_client.get("/api/user/me", expected_status=200)
 
     return api_client
 

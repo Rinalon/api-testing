@@ -1,16 +1,17 @@
 import pytest
 import allure
-import requests
-from models import UserCreate, Body_login_api_auth_login_post as LoginModel, UserResponse
+from models import UserCreate, Body_login_api_auth_login_post as LoginModel
 from helpers import generate_user
 from datetime import date
 
+@allure.epic("Auth")
 class TestAuth:
     reg_endpoint = '/api/auth/register'
     login_endpoint = '/api/auth/login'
 
     @pytest.fixture(autouse=True)
     def setup(self, faker, api_client):
+        """Фикстура для инициализации"""
         self.faker = faker
         self.api_client = api_client
 
@@ -38,6 +39,13 @@ class TestAuth:
             headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
 
+    @allure.feature("Регистрация")
+    @allure.story("Позитивный тест на регистрацию")
+    @allure.description("""
+        1 Создаём пользователя
+        2 Регистрируем
+        3 Проверяем дату создания и данные аккаунта
+    """)
     @pytest.mark.positive
     def test_register_success(self):
         raw_user = self.__create_user()
@@ -51,6 +59,13 @@ class TestAuth:
             for key in common_keys:
                 assert raw_user[key] == created_user[key], f"Не совпало поле {key}"
 
+    @allure.feature("Регистрация")
+    @allure.story("Негативный тест на регистрацию")
+    @allure.description("""
+        1 Создаём пользователя
+        2 Регистрируем
+        3 Пытаемся зарегистрировать во 2й раз
+    """)
     @pytest.mark.negative
     def test_register_same_email_fail(self):
         raw_user = self.__create_user()
@@ -60,6 +75,12 @@ class TestAuth:
         with allure.step("Повторяем попытку регистрации"):
             self.__registrate_user(raw_user, expected_status=400)
 
+    @allure.feature("Логин")
+    @allure.story("Позитивный тест на вход")
+    @allure.description("""
+        1 Берём данные пользователя, который уже существует в системе
+        2 Входим
+    """)
     @pytest.mark.positive
     def test_login_success(self, test_user_credentials):
         with allure.step("Берём данные пользователя, который точно существует в системе"):
@@ -67,6 +88,12 @@ class TestAuth:
 
         self.__login(user)
 
+    @allure.feature("Логин")
+    @allure.story("Негативный тест на регистрацию")
+    @allure.description("""
+        1 Создаём email и пароль
+        2 Пытаемся войти
+    """)
     @pytest.mark.negative
     def test_login_fail(self, faker):
         with allure.step("Создаём email и пароль, которых ранее в системе точно не было"):
@@ -79,6 +106,15 @@ class TestAuth:
 
         self.__login(user, expected_status=422)
 
+    @allure.feature("Регистрация")
+    @allure.story("Проверка регистрации с невалидными данными")
+    @allure.description("""
+        1 Создаём пользователя без почты
+        2 Ставим почту из параметра теста
+        3 Пытаемся зарегистрировать
+        
+        Т.к. Pydantic-модель упадёт с ValidationError, в тесте она не используется
+    """)
     @pytest.mark.negative
     @pytest.mark.parametrize("email", [
         pytest.param("anna@anna", id="no_dot_in_tld"),
@@ -102,6 +138,15 @@ class TestAuth:
         with allure.step("Пытаемся зарегистрировать"):
             self.__registrate_user(user, 422)
 
+    @allure.feature("Регистрация")
+    @allure.story("Проверка регистрации разными паролями")
+    @allure.description("""
+        1 Создаём пользователя без пароля
+        2 Ставим пароль из параметра теста
+        3 Пытаемся зарегистрировать
+
+        Т.к. Pydantic-модель упадёт с ValidationError, в тесте она не используется
+    """)
     @pytest.mark.parametrize("password, status_code", [
         pytest.param("12345", 422, id="too_small"),
         pytest.param("1a_B56", 200, id="correct_password"),
