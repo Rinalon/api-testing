@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 import allure
 import requests
@@ -8,6 +10,11 @@ from models import (
     Body_login_api_auth_login_post as LoginModel
 )
 from faker import Faker
+
+@pytest.fixture(scope="function", autouse=True)
+def allure_setup(request):
+    test_name = request.node.name.replace("test_", "").replace("_", " ").title()
+    allure.dynamic.title(test_name)
 
 @pytest.fixture(scope="session")
 def faker():
