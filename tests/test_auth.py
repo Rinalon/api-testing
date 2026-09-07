@@ -40,6 +40,7 @@ class TestAuth:
         )
 
     @allure.feature("Регистрация")
+    @allure.severity(allure.severity_level.BLOCKER)
     @allure.story("Позитивный тест на регистрацию")
     @allure.description("""
         1 Создаём пользователя
@@ -60,6 +61,7 @@ class TestAuth:
                 assert raw_user[key] == created_user[key], f"Не совпало поле {key}"
 
     @allure.feature("Регистрация")
+    @allure.severity(allure.severity_level.BLOCKER)
     @allure.story("Негативный тест на регистрацию")
     @allure.description("""
         1 Создаём пользователя
@@ -73,9 +75,10 @@ class TestAuth:
         self.__registrate_user(raw_user)
 
         with allure.step("Повторяем попытку регистрации"):
-            self.__registrate_user(raw_user, expected_status=400)
+            self.__registrate_user(raw_user, expected_status=409)
 
     @allure.feature("Логин")
+    @allure.severity(allure.severity_level.BLOCKER)
     @allure.story("Позитивный тест на вход")
     @allure.description("""
         1 Берём данные пользователя, который уже существует в системе
@@ -89,6 +92,7 @@ class TestAuth:
         self.__login(user)
 
     @allure.feature("Логин")
+    @allure.severity(allure.severity_level.BLOCKER)
     @allure.story("Негативный тест на регистрацию")
     @allure.description("""
         1 Создаём email и пароль
@@ -104,9 +108,10 @@ class TestAuth:
                 password=faker.password(length=10, special_chars=True, digits=True),
             )
 
-        self.__login(user, expected_status=422)
+        self.__login(user, expected_status=401)
 
     @allure.feature("Регистрация")
+    @allure.severity(allure.severity_level.BLOCKER)
     @allure.story("Проверка регистрации с невалидными данными")
     @allure.description("""
         1 Создаём пользователя без почты
@@ -139,6 +144,7 @@ class TestAuth:
             self.__registrate_user(user, 422)
 
     @allure.feature("Регистрация")
+    @allure.severity(allure.severity_level.BLOCKER)
     @allure.story("Проверка регистрации разными паролями")
     @allure.description("""
         1 Создаём пользователя без пароля

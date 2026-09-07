@@ -16,6 +16,7 @@ class TestNews:
 
     @allure.feature("Создание новости")
     @allure.story("Проверка создания новости")
+    @allure.severity(allure.severity_level.CRITICAL)
     @allure.description("""
         1 Создаём новость
         2 Проверяем соответствие созданной новости и изначальной
@@ -47,6 +48,7 @@ class TestNews:
                 assert created_news.image_path is not None, "Картинка не загрузилась"
 
     @allure.feature("Получение всех новостей")
+    @allure.severity(allure.severity_level.CRITICAL)
     @allure.story("Проверка получения всех новостей")
     @allure.description("""
         1 Запросить новости по эндпоинту
@@ -58,6 +60,7 @@ class TestNews:
         assert response.json().get("items") is not None, "Нет списка"
 
     @allure.feature("Получение тегов")
+    @allure.severity(allure.severity_level.NORMAL)
     @allure.story("Получение тегов")
     @allure.description("""
         1 Запросить теги по эндпоинту
@@ -71,6 +74,7 @@ class TestNews:
         assert isinstance(result, list)
 
     @allure.feature("Получение конкретной новости")
+    @allure.severity(allure.severity_level.CRITICAL)
     @allure.story("Получение конкретной новости")
     @allure.description("""
         1 Создать новость
@@ -88,6 +92,7 @@ class TestNews:
         assert received == example, "Полученная новость отличается от созданной"
 
     @allure.feature("Пагинация")
+    @allure.severity(allure.severity_level.NORMAL)
     @allure.story("Проверка пагинации")
     @allure.description("""
         1 Получить 1ю страницу
@@ -122,6 +127,7 @@ class TestNews:
             assert all(page1[i] != page2[i] for i in range(20))
 
     @allure.feature("Поиск по тексту")
+    @allure.severity(allure.severity_level.NORMAL)
     @allure.story("Проверка поиска по тексту")
     @allure.description("""
         1 Создаём новость
@@ -143,6 +149,7 @@ class TestNews:
             assert any(news_data["id"] == n["id"] for n in response.json()["items"])
 
     @allure.feature("Поиск по тегу")
+    @allure.severity(allure.severity_level.NORMAL)
     @allure.story("Проверка поиска по тегу")
     @allure.description("""
         1 Создаём новость

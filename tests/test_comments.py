@@ -41,6 +41,7 @@ class TestComments:
         return comments
 
     @allure.feature("Добавление комментария")
+    @allure.severity(allure.severity_level.CRITICAL)
     @allure.story("Проверка добавления комментария")
     @allure.description("""
         1 Создание новости
@@ -59,8 +60,9 @@ class TestComments:
 
             assert any(c == comment for c in comments), "Комментарий не найден"
 
-    @allure.feature("Получение новостей")
-    @allure.story("Проверка получения новостей страницы")
+    @allure.feature("Получение комментариев")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @allure.story("Проверка получения коментариев к новости")
     @allure.description("""
         1 Создание новости
         2 Создание комментариев
